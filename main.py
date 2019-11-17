@@ -29,7 +29,7 @@ def ping(host):
 def pretty_print(j):
     print(json.dumps(j, indent=4, sort_keys=True))
 
-def engage_light():
+def engage_light(turnon_time):
     id_of_bulb = '0x00000000052bf666'
 
     # Either make sure you have no VPN turned on, or pass your current IP (in local network) to 'interface='
@@ -48,7 +48,7 @@ def engage_light():
     bulb.turn_on(duration=1000)
     bulb.set_color_temp(6500)
     bulb.set_brightness(100)
-    sleep(5)
+    sleep(turnon_time)
     bulb.turn_off(duration=10000)
 
 # engage_light()
@@ -66,10 +66,11 @@ def get_ip(mac):
 
     return possible_ips[0] if len(possible_ips) > 0 else None
 
-print(get_ip(slava_iphone_mac))
+# print(get_ip(slava_iphone_mac))
 
-slava_prev = False
-vika_prev = False
+slava_prev = True
+vika_prev = True
+engage_light(1)
 while True:
     slava = get_ip(slava_iphone_mac)
     vika = get_ip(vika_iphone_mac)
@@ -81,12 +82,13 @@ while True:
     ping_slava = slava is not None
     ping_vika = vika is not None
 
-    print(slava, vika, ping_slava, ping_vika)
+    # print(slava, vika, ping_slava, ping_vika)
 
     if ((not slava_prev) and ping_slava) or \
         ((not vika_prev) and ping_vika):
+        print('Detected ' + ('Slava' if ping_slava else 'Vika'))
         print('Engaging...')
-        engage_light()
+        engage_light(3 * 60)
 
     slava_prev = ping_slava
     vika_prev = ping_vika
