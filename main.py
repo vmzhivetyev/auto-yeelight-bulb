@@ -35,12 +35,13 @@ def pretty_print(j):
     log(json.dumps(j, indent=4, sort_keys=True))
 
 def get_ip(mac):
-    regex = r"^\s*(\S+)\s*" + mac
+    regex = r"^.*?(\d+\.\d+\.\d+\.\d+).*" + mac.replace('-','[-:]')
 
     arp_a_output = subprocess.getoutput("arp -a")
     possible_ips = re.findall(regex, arp_a_output, re.MULTILINE)
 
     return possible_ips[0] if len(possible_ips) > 0 else None
+
 
 class Device:
     def __init__(self, name, mac):
