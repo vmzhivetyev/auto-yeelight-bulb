@@ -8,6 +8,11 @@ import subprocess
 import re
 import platform    # For getting the operating system name
 import subprocess  # For executing a shell command
+from datetime import datetime
+
+
+def log(msg):
+    print(datetime.now(), '>', msg)
 
 def ping(host):
     """
@@ -27,36 +32,7 @@ def ping(host):
     return subprocess.call(command, stdout=open(os.devnull, 'wb')) == 0
 
 def pretty_print(j):
-    print(json.dumps(j, indent=4, sort_keys=True))
-
-def engage_light(turnon_time):
-    id_of_bulb = '0x00000000052bf666'
-
-    # Either make sure you have no VPN turned on, or pass your current IP (in local network) to 'interface='
-    bulbs = discover_bulbs()
-    print(f'Found {len(bulbs)} bulbs.')
-
-    needed = [x for x in bulbs if id_of_bulb == x['capabilities']['id']]
-
-    if len(needed) == 0:
-        print(f"Error: Bulb with id {id_of_bulb} not found.")
-        return
-
-    needed = needed[0]
-    bulb = Bulb(needed['ip'], duration=1000)
-    # bulb.set_hsv(0, 0, 0)
-    bulb.turn_on(duration=1000)
-    bulb.set_color_temp(6500)
-    bulb.set_brightness(100)
-    sleep(turnon_time)
-    bulb.turn_off(duration=10000)
-
-# engage_light()
-
-slava_iphone_mac = 'b0-19-c6-d1-86-00'
-vika_iphone_mac = '64-70-33-7b-92-a0'
-
-# while True:
+    log(json.dumps(j, indent=4, sort_keys=True))
 
 def get_ip(mac):
     regex = r"^\s*(\S+)\s*" + mac
@@ -66,30 +42,101 @@ def get_ip(mac):
 
     return possible_ips[0] if len(possible_ips) > 0 else None
 
-# print(get_ip(slava_iphone_mac))
+class Device:
+    def __init__(self, name, mac):
+        self.name = name
+        self.mac = mac
+        self.prev_available = True
+        self.ip = 'init'
 
-slava_prev = True
-vika_prev = True
-engage_light(1)
+    def update_ip(self):
+        self.ip = get_ip(self.mac)
+
+    @property
+    def available(self):
+        # return ping(self.ip)
+        return self.ip is not None
+
+    def update(self):
+        self.update_ip()
+
+        if self.available != self.prev_available:
+            self.prev_available = self.available
+
+            if self.available:
+                log(f'Detected {self.name} {self.ip}')
+                return True
+
+            else:
+                log(f'Lost {self.name}')
+
+        return False
+
+class BulbContainer:
+    def __init__(self, id):
+        self.id = id
+        self.bulb = None
+        self.find_bulb()
+
+    def find_bulb(self):
+        log("Searching for the bulb...")
+
+        # Either make sure you have no VPN turned on, or pass your current IP (in local network) to 'interface='
+        bulbs = discover_bulbs(timeout=5)
+        log(f'Found {len(bulbs)} bulbs.')
+
+        needed = [x for x in bulbs if self.id == x['capabilities']['id']]
+
+        if len(needed) == 0:
+            log(f"Error: Bulb with id {self.id} not found.")
+            return
+
+        log("Found the bulb.")
+
+        needed = needed[0]
+        self.bulb = Bulb(needed['ip'], duration=1000)
+
+    def blink(self, duration, retry=10):
+        if not self.bulb:
+            self.find_bulb()
+
+        if not self.bulb:
+            log('Blink error: The bulb is not available.')
+        else:
+            try:
+                self.bulb.turn_on(duration=1000)
+                self.bulb.set_color_temp(6500)
+                self.bulb.set_brightness(100)
+                sleep(duration)
+                self.bulb.turn_off(duration=10000)
+
+                return
+            except Exception as ex:
+                log(f"Blink error: {ex}")
+                self.bulb = None
+
+        if retry > 0:
+            log(f'Retrying... ({retry} more time)')
+            self.blink(duration, retry=retry-1)
+
+devices = [
+    Device('Slava', 'b0-19-c6-d1-86-00'),
+    Device('Vika', '64-70-33-7b-92-a0')
+]
+
+bulb = BulbContainer('0x00000000052bf666')
+
+log("Testing engagement...")
+bulb.blink(1)
+log("Testing finished.")
+
+for d in devices:
+    d.update()
+    log(f'Device {d.name} available: {d.available}')
+
 while True:
-    slava = get_ip(slava_iphone_mac)
-    vika = get_ip(vika_iphone_mac)
+    for d in devices:
+        if d.update():
+            bulb.blink(3) # 3 minutes
 
-    # Based on ping:
-    # ping_slava = ping(slava)
-    # ping_vika = ping(vika)
-
-    ping_slava = slava is not None
-    ping_vika = vika is not None
-
-    # print(slava, vika, ping_slava, ping_vika)
-
-    if ((not slava_prev) and ping_slava) or \
-        ((not vika_prev) and ping_vika):
-        print('Detected ' + ('Slava' if ping_slava else 'Vika'))
-        print('Engaging...')
-        engage_light(3 * 60)
-
-    slava_prev = ping_slava
-    vika_prev = ping_vika
     sleep(1)
