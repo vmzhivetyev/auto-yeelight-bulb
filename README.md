@@ -23,14 +23,16 @@ iPhone seems to not answer simple ping packets when it's screen locked.
 
 ```nmap -p 443 192.168.1.69 -Pn``` scans for services on port **443**.
  `-Pn` assumes that host is live, host discovery using ping is skipped.
+  [(it's used for push notifications)](https://support.apple.com/en-us/HT203609)
+
 
 ## Final implementation
 
 I decided to set static IPs (reserved DHCP) for the bulb and the iPhone. 
 Those IPs are hardcoded.
 
-`nmap` is used to test 
-if port **443** [(it's used for push notifications)](https://support.apple.com/en-us/HT203609) is available on the specific IP.
+If iPhone can not be pinged for 30 minutes straight it will be marked unavailable. 
+After that it will trigger the bulb after first successful ping.
 
 # Installation
 

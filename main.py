@@ -8,7 +8,7 @@ import subprocess
 import re
 import platform    # For getting the operating system name
 import subprocess  # For executing a shell command
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 def log(msg):
@@ -31,9 +31,6 @@ def ping(host):
 
     return subprocess.call(command, stdout=open(os.devnull, 'wb')) == 0
 
-def ping_nmap(ip, port):
-    output = subprocess.getoutput(f"nmap -p {port} {ip} -Pn")
-    return "Host is up." in output
 
 def pretty_print(j):
     log(json.dumps(j, indent=4, sort_keys=True))
@@ -47,18 +44,16 @@ class Device:
         self.available = True
         self.triggered = False
 
-        self.failCounter = 0
+        self.lose_time = None
 
     def update(self):
-        if ping_nmap(self.ip, 443):
-            self.failCounter = 0
+        if ping(self.ip) or not self.lose_time:
+            self.lose_time = datetime.now() + timedelta(minutes=30)
             self.available = True
-            log(f'{self.name} pinged!')
-        else:
-            self.failCounter += 1
-            log(f'{self.name} not pinged x{self.failCounter}')
-            if self.failCounter >= 10:
-                self.available = False
+            # log(f'{self.name} pinged! Will be lost at {self.lose_time}')
+
+        if datetime.now() > self.lose_time:
+            self.available = False
 
         if self.available != self.prev_available:
             self.prev_available = self.available
@@ -66,6 +61,7 @@ class Device:
             if self.available:
                 log(f'Detected {self.name} {self.ip}')
                 self.triggered = True
+                self.lose_time = None
 
             else:
                 log(f'Lost {self.name}')
@@ -84,7 +80,6 @@ class BulbContainer:
 
         except Exception as ex:
             log(f"Blink error: {ex}")
-            self.bulb = None
 
             if retry > 0:
                 log(f'Retrying... ({retry} more time)')
@@ -109,6 +104,6 @@ while True:
         d.update()
         if d.triggered:
             d.triggered = False
-            bulb.blink(3)
+            bulb.blink(3 * 60)
 
     sleep(1)
