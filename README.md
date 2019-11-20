@@ -1,7 +1,7 @@
 # What is it
 
 This script toggles on a yeelight lamp for a certain amount of time (3 min.) 
-when your iPhone (or other Wi-Fi enabled device) becomes reachable on the local network.
+when your iPhone becomes reachable on the local network.
  
 # How it works
 
@@ -26,7 +26,7 @@ iPhone seems to not answer simple ping packets when it's screen locked.
 
 ## Final implementation
 
-I decided to create **Static DHCP** table for the bulb and the iPhone (Set static IPs for them). 
+I decided to set static IPs (reserved DHCP) for the bulb and the iPhone. 
 Those IPs are hardcoded.
 
 `nmap` is used to test 
